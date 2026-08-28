@@ -4,7 +4,7 @@ const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s);
 const esc=s=>(s??'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)||0);
-let cats=[],products=[],currentImage='',removeImage=false;
+let cats=[],products=[],currentImage='',removeImage=false,activeCategory='all';
 
 function msg(el,text,ok=true){$(el).textContent=text;$(el).style.color=ok?'#a7e8b8':'#ff9292'}
 async function ensureAdmin(){
@@ -28,17 +28,42 @@ $('#signupBtn').addEventListener('click',async()=>{msg('#authMsg','Criando acess
 });
 $('#logout').addEventListener('click',async()=>{await sb.auth.signOut();showAuth()});
 
+
+function renderCategoryTabs(){
+  const tabs=[
+    {id:'all',name:'Todos'},
+    ...cats.map(c=>({id:c.id,name:c.name}))
+  ];
+  $('#adminCategoryTabs').innerHTML=tabs.map(t=>{
+    const count=t.id==='all'
+      ? products.length
+      : products.filter(p=>p.category_id===t.id).length;
+    return `<button type="button" class="admin-category-tab ${activeCategory===t.id?'active':''}" data-category="${t.id}">
+      <span>${esc(t.name)}</span><small>${count}</small>
+    </button>`;
+  }).join('');
+}
+
 async function loadData(){
  const [c,p]=await Promise.all([sb.from('menu_categories').select('*').order('sort_order'),sb.from('menu_products').select('*,menu_categories(name,slug)').order('sort_order')]);
  if(c.error||p.error){msg('#saveMsg','Erro ao carregar os dados.',false);return}
  cats=c.data||[];products=p.data||[];
  $('#category').innerHTML=cats.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
- renderList(); if(products.length) edit(products[0].id); else resetForm();
+ if(activeCategory!=='all' && !cats.some(c=>c.id===activeCategory)) activeCategory='all';
+ renderCategoryTabs(); renderList();
+ const firstVisible=activeCategory==='all' ? products[0] : products.find(p=>p.category_id===activeCategory);
+ if(firstVisible) edit(firstVisible.id); else resetForm();
 }
 function renderList(){
  const q=$('#filter').value.trim().toLowerCase();
- const list=products.filter(p=>(p.name+' '+(p.menu_categories?.name||'')).toLowerCase().includes(q));
- $('#adminList').innerHTML=list.map(p=>`<button class="admin-item" data-id="${p.id}"><strong>${esc(p.name)}</strong><small>${esc(p.menu_categories?.name||'')} • ${money(p.price)} • ${p.visible?'visível':'oculto'}</small></button>`).join('');
+ const list=products.filter(p=>{
+   const matchesCategory=activeCategory==='all' || p.category_id===activeCategory;
+   const matchesSearch=(p.name+' '+(p.menu_categories?.name||'')).toLowerCase().includes(q);
+   return matchesCategory && matchesSearch;
+ });
+ $('#adminList').innerHTML=list.length
+   ? list.map(p=>`<button class="admin-item" data-id="${p.id}"><strong>${esc(p.name)}</strong><small>${esc(p.menu_categories?.name||'')} • ${money(p.price)} • ${p.visible?'visível':'oculto'}</small></button>`).join('')
+   : `<div class="admin-empty">Nenhum produto nesta categoria.</div>`;
 }
 function resetForm(){
  $('#productForm').reset();$('#id').value='';$('#visible').checked=true;$('#preview').classList.add('hidden');currentImage='';removeImage=false;$('#removeImageBtn').classList.add('hidden');$('#deleteBtn').classList.add('hidden');msg('#saveMsg','');
@@ -50,7 +75,24 @@ function edit(id){
 }
 $('#adminList').addEventListener('click',e=>{const b=e.target.closest('[data-id]');if(b)edit(b.dataset.id)});
 $('#filter').addEventListener('input',renderList);
-$('#newProduct').addEventListener('click',resetForm);
+
+$('#adminCategoryTabs').addEventListener('click',e=>{
+ const b=e.target.closest('[data-category]');if(!b)return;
+ activeCategory=b.dataset.category;
+ renderCategoryTabs();
+ renderList();
+ const first=activeCategory==='all' ? products[0] : products.find(p=>p.category_id===activeCategory);
+ if(first) edit(first.id); else {
+   resetForm();
+   if(activeCategory!=='all') $('#category').value=activeCategory;
+ }
+});
+
+$('#newProduct').addEventListener('click',()=>{
+ resetForm();
+ if(activeCategory!=='all') $('#category').value=activeCategory;
+ $('#name').focus();
+});
 $('#image').addEventListener('change',e=>{const f=e.target.files[0];if(f){removeImage=false;$('#preview').src=URL.createObjectURL(f);$('#preview').classList.remove('hidden');$('#removeImageBtn').classList.remove('hidden')}});
 $('#removeImageBtn').addEventListener('click',()=>{removeImage=true;currentImage='';$('#image').value='';$('#preview').removeAttribute('src');$('#preview').classList.add('hidden');$('#removeImageBtn').classList.add('hidden');msg('#saveMsg','Foto marcada para remoção. Toque em Salvar alterações.');});
 
@@ -70,7 +112,10 @@ $('#productForm').addEventListener('submit',async e=>{e.preventDefault();msg('#s
    if(!id){const ins=await sb.from('menu_products').insert({...base,image_url:null}).select('id').single();if(ins.error)throw ins.error;id=ins.data.id}
    const imageUrl=await uploadImage($('#image').files[0],id);
    const up=await sb.from('menu_products').update({...base,image_url:imageUrl}).eq('id',id);if(up.error)throw up.error;
-   msg('#saveMsg','Salvo. O cardápio público já está atualizado.');$('#image').value='';await loadData();edit(id);
+   msg('#saveMsg','Salvo. O cardápio público já está atualizado.');
+   $('#image').value='';
+   if(activeCategory!=='all') activeCategory=base.category_id;
+   await loadData();edit(id);
  }catch(err){msg('#saveMsg',err.message||'Erro ao salvar.',false)}
 });
 $('#deleteBtn').addEventListener('click',async()=>{const id=$('#id').value;if(!id||!confirm('Excluir este produto?'))return;const {error}=await sb.from('menu_products').delete().eq('id',id);if(error){msg('#saveMsg',error.message,false);return}await loadData();resetForm()});

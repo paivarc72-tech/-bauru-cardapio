@@ -8,6 +8,10 @@
 <div class="actions"><button class="btn primary" type="submit">Entrar</button><button class="btn" id="signupBtn" type="button">Criar primeiro acesso</button></div></form><div id="authMsg" class="status"></div></section>
 
 <section id="panel" class="hidden"><div class="admin-head"><div><div class="eyebrow">PAINEL ONLINE</div><h1>Produtos</h1></div><div class="actions"><button id="newProduct" class="btn primary">+ Novo produto</button><button id="logout" class="btn">Sair</button></div></div>
+<div class="admin-tabs-wrap">
+  <div class="admin-tabs-label">EDITAR POR CATEGORIA</div>
+  <div id="adminCategoryTabs" class="admin-category-tabs"></div>
+</div>
 <div class="admin-grid"><div class="card"><input id="filter" class="search" placeholder="Buscar produto..."><div id="adminList" class="admin-list" style="margin-top:12px"></div></div>
 <div class="card"><form id="productForm" class="form"><input id="id" type="hidden">
 <div class="field"><label>Nome</label><input id="name" required></div><div class="field"><label>Categoria</label><select id="category" required></select></div>
