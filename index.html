@@ -64,6 +64,23 @@
   </section>
 </main>
 
+
+<div id="productModal" class="product-modal hidden" aria-hidden="true">
+  <div class="product-modal-backdrop" data-close-modal></div>
+  <div class="product-modal-card" role="dialog" aria-modal="true" aria-labelledby="modalProductName">
+    <button class="product-modal-close" type="button" aria-label="Fechar" data-close-modal>×</button>
+    <div id="modalProductImageWrap" class="product-modal-image-wrap">
+      <img id="modalProductImage" class="product-modal-image" alt="">
+    </div>
+    <div class="product-modal-body">
+      <div id="modalProductCategory" class="eyebrow"></div>
+      <h2 id="modalProductName"></h2>
+      <div id="modalProductPrice" class="product-modal-price"></div>
+      <p id="modalProductDescription" class="product-modal-description"></p>
+    </div>
+  </div>
+</div>
+
 <footer class="footer">
   <div class="container"><div id="notes" class="notes"></div></div>
 </footer>

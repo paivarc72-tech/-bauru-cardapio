@@ -2,6 +2,36 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import { SUPABASE_URL, SUPABASE_KEY, resolveAsset } from './config.js';
 const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s);
+
+function openProductModal(product){
+  const modal=$('#productModal');
+  if(!modal) return;
+  $('#modalProductName').textContent=product.name||'';
+  $('#modalProductPrice').textContent=money(product.price);
+  $('#modalProductDescription').textContent=product.description||'Sem descrição.';
+  $('#modalProductCategory').textContent=product.menu_categories?.name||'';
+  const wrap=$('#modalProductImageWrap');
+  const img=$('#modalProductImage');
+  if(product.image_url){
+    img.src=product.image_url;
+    img.alt=product.name||'Produto';
+    wrap.classList.remove('hidden');
+  }else{
+    img.removeAttribute('src');
+    img.alt='';
+    wrap.classList.add('hidden');
+  }
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('modal-open');
+}
+function closeProductModal(){
+  const modal=$('#productModal');
+  if(!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden','true');
+  document.body.classList.remove('modal-open');
+}
 const esc=s=>(s??'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)||0);
 let categories=[],products=[],active='featured',query='';
@@ -37,7 +67,7 @@ function render(){
   const catObj=categories.find(c=>c.slug===active);
   $('#sectionName').textContent=query?'Resultados da busca':active==='featured'?'Destaques':(catObj?.name||'Cardápio');
   $('#count').textContent=`${list.length} ${list.length===1?'item':'itens'}`;
-  $('#products').innerHTML=list.length?list.map(p=>`<article class="product">
+  $('#products').innerHTML=list.length?list.map(p=>`<article class="product product-clickable" data-product-id="${p.id}" role="button" tabindex="0" aria-label="Abrir ${esc(p.name)}">
     <div class="product-img">${p.image_url?`<img loading="lazy" src="${esc(resolveAsset(p.image_url))}" alt="${esc(p.name)}">`:''}</div>
     <div class="product-body"><div class="product-top"><h3>${esc(p.name)}</h3><div class="price">${money(p.price)}</div></div>
     ${p.description?`<p class="desc">${esc(p.description)}</p>`:''}${p.featured?'<span class="badge">DESTAQUE</span>':''}</div></article>`).join(''):'<div class="empty">Nenhum item encontrado.</div>';
@@ -45,3 +75,22 @@ function render(){
 $('#chips').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(!b)return;active=b.dataset.cat;query='';$('#search').value='';document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===b));render()});
 $('#search').addEventListener('input',e=>{query=e.target.value.trim();render()});
 boot();
+
+
+document.addEventListener('click',e=>{
+  const close=e.target.closest('[data-close-modal]');
+  if(close){closeProductModal();return;}
+  const card=e.target.closest('[data-product-id]');
+  if(!card) return;
+  const product=products.find(p=>p.id===card.dataset.productId);
+  if(product) openProductModal(product);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeProductModal();return;}
+  const card=e.target.closest?.('[data-product-id]');
+  if(card && (e.key==='Enter' || e.key===' ')){
+    e.preventDefault();
+    const product=products.find(p=>p.id===card.dataset.productId);
+    if(product) openProductModal(product);
+  }
+});
